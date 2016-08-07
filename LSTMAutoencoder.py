@@ -6,7 +6,8 @@ import numpy as np
 
 class BasicLSTMAutoencoder(object):
   def __init__(self, hidden_num, inputs, 
-    cell=None, optimizer=None, non_reverse=None):
+    cell=None, optimizer=None, reverse=True, 
+    decode_without_input=False):
     """Basic version of LSTM-autoencoder.
     (cf. http://arxiv.org/abs/1502.04681)
 
@@ -15,11 +16,15 @@ class BasicLSTMAutoencoder(object):
       inputs : a list of input tensors  with size 
               (batch_num x elem_num)
       cell : an rnn cell object (the default option 
-            is `BasicLSTMCell` of TensorFlow)
+            is `tf.python.ops.rnn_cell.BasicLSTMCell`)
+      optimizer : optimizer for rnn (the default option is
+              `tf.train.AdamOptimizer`)
+      reverse : Option to decode in reverse order.
+      decode_without_input : Option to decode without input.
     """
 
-    #self._hidden_num = hidden_num
-    #self._inputs = inputs
+    self.batch_num = inputs[0].get_shape().as_list()[0]
+    self.elem_num = inputs[0].get_shape().as_list()[1]
 
     if cell is None:
       self._enc_cell = BasicLSTMCell(hidden_num)
@@ -32,17 +37,30 @@ class BasicLSTMAutoencoder(object):
       self.z_codes, enc_state = tf.nn.rnn(
         self._enc_cell, inputs, dtype=tf.float32)
 
-    if non_reverse:
-      zero_input = tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
-      dec_inputs = [zero_input] + inputs[1:]
+    if decode_without_input:
+      dec_inputs = [tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
+                    for _ in range(len(inputs))]
     else :
-      zero_input = tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
-      dec_inputs = [zero_input] + inputs[-1:0:-1]
+      if reverse:
+        zero_input = tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
+        dec_inputs = [zero_input] + inputs[-1:0:-1]
+      else :
+        zero_input = tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
+        dec_inputs = [zero_input] + inputs[1:]
 
     with tf.variable_scope('decoder'):
       dec_output, dec_state = tf.nn.rnn(
         self._dec_cell, dec_inputs, 
         initial_state=enc_state, dtype=tf.float32)
+      dec_weight_ = tf.Variable(
+        tf.truncated_normal([hidden_num, self.elem_num], dtype=tf.float32),
+        name="dec_weight")
+      dec_bias_ = tf.Variable(
+        tf.constant(0.1, shape=[self.elem_num], dtype=tf.float32),
+        name="dec_bias")
+
+    if reverse:
+      dec_output = dec_output[::-1]
 
     """the shape of each tensor
       dec_output_ : (step_num x hidden_num)
@@ -51,17 +69,8 @@ class BasicLSTMAutoencoder(object):
       output_ : (step_num x elem_num)
       input_ : (step_num x elem_num)
     """
-    batch_num = inputs[0].get_shape().as_list()[0]
-    elem_num = inputs[0].get_shape().as_list()[1]
-    with tf.variable_scope('decoder'):
-      dec_weight_ = tf.Variable(
-        tf.truncated_normal([hidden_num, elem_num], dtype=tf.float32),
-        name="dec_weight")
-      dec_bias_ = tf.Variable(
-        tf.constant(0.1, shape=[elem_num], dtype=tf.float32),
-        name="dec_bias")
     dec_output_ = tf.transpose(tf.pack(dec_output), [1,0,2])
-    dec_weight_ = tf.tile(tf.expand_dims(dec_weight_, 0), [batch_num,1,1])
+    dec_weight_ = tf.tile(tf.expand_dims(dec_weight_, 0), [self.batch_num,1,1])
 
     self.output_ = tf.batch_matmul(dec_output_, dec_weight_) + dec_bias_
     self.input_ = tf.transpose(tf.pack(inputs), [1,0,2])
