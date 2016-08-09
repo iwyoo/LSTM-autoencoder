@@ -41,21 +41,21 @@ class LSTMAutoencoder(object):
       self.z_codes, enc_state = tf.nn.rnn(
         self._enc_cell, inputs, dtype=tf.float32)
 
-    if decode_without_input:
-      dec_inputs = [tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
-                    for _ in range(len(inputs))]
-    else :
-      if reverse:
-        zero_input = tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
-        dec_inputs = [zero_input] + inputs[-1:0:-1]
-      else :
-        zero_input = tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
-        dec_inputs = [zero_input] + inputs[1:]
-
     with tf.variable_scope('decoder'):
-      dec_output, dec_state = tf.nn.rnn(
-        self._dec_cell, dec_inputs, 
-        initial_state=enc_state, dtype=tf.float32)
+      if decode_without_input:
+        dec_inputs = [tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
+                      for _ in range(len(inputs))]
+        dec_outputs, dec_state = tf.nn.rnn(
+          self._dec_cell, dec_inputs, 
+          initial_state=enc_state, dtype=tf.float32)
+      else : 
+        dec_state = enc_state
+        dec_input = tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
+        dec_outputs = []
+        for i in range(len(inputs)):
+          dec_input, dec_state = self._dec_cell(dec_input, dec_state)
+          dec_outputs.append(dec_input)
+
       dec_weight_ = tf.Variable(
         tf.truncated_normal([hidden_num, self.elem_num], dtype=tf.float32),
         name="dec_weight")
@@ -64,7 +64,7 @@ class LSTMAutoencoder(object):
         name="dec_bias")
 
     if reverse:
-      dec_output = dec_output[::-1]
+      dec_outputs = dec_outputs[::-1]
 
     """the shape of each tensor
       dec_output_ : (step_num x hidden_num)
@@ -73,7 +73,7 @@ class LSTMAutoencoder(object):
       output_ : (step_num x elem_num)
       input_ : (step_num x elem_num)
     """
-    dec_output_ = tf.transpose(tf.pack(dec_output), [1,0,2])
+    dec_output_ = tf.transpose(tf.pack(dec_outputs), [1,0,2])
     dec_weight_ = tf.tile(tf.expand_dims(dec_weight_, 0), [self.batch_num,1,1])
 
     self.output_ = tf.batch_matmul(dec_output_, dec_weight_) + dec_bias_
