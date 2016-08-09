@@ -77,6 +77,8 @@ class LSTMAutoencoder(object):
           dec_input_, dec_state = self._dec_cell(dec_input_, dec_state)
           dec_input_ = tf.matmul(dec_input_, dec_weight_) + dec_bias_
           dec_outputs.append(dec_input_)
+        if reverse:
+          dec_outputs = dec_outputs[::-1]
         self.output_ = tf.transpose(tf.pack(dec_outputs), [1,0,2])
 
     self.input_ = tf.transpose(tf.pack(inputs), [1,0,2])
