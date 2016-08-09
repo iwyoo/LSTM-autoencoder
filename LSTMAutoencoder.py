@@ -85,4 +85,4 @@ class LSTMAutoencoder(object):
     if optimizer is None :
       self.train = tf.train.AdamOptimizer().minimize(self.loss)
     else :
-      self.train = optimizer.minimise(self.loss)
+      self.train = optimizer.minimize(self.loss)
