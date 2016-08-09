@@ -41,21 +41,7 @@ class LSTMAutoencoder(object):
       self.z_codes, enc_state = tf.nn.rnn(
         self._enc_cell, inputs, dtype=tf.float32)
 
-    with tf.variable_scope('decoder'):
-      if decode_without_input:
-        dec_inputs = [tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
-                      for _ in range(len(inputs))]
-        dec_outputs, dec_state = tf.nn.rnn(
-          self._dec_cell, dec_inputs, 
-          initial_state=enc_state, dtype=tf.float32)
-      else : 
-        dec_state = enc_state
-        dec_input = tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
-        dec_outputs = []
-        for i in range(len(inputs)):
-          dec_input, dec_state = self._dec_cell(dec_input, dec_state)
-          dec_outputs.append(dec_input)
-
+    with tf.variable_scope('decoder') as vs:
       dec_weight_ = tf.Variable(
         tf.truncated_normal([hidden_num, self.elem_num], dtype=tf.float32),
         name="dec_weight")
@@ -63,20 +49,36 @@ class LSTMAutoencoder(object):
         tf.constant(0.1, shape=[self.elem_num], dtype=tf.float32),
         name="dec_bias")
 
-    if reverse:
-      dec_outputs = dec_outputs[::-1]
+      if decode_without_input:
+        dec_inputs = [tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
+                      for _ in range(len(inputs))]
+        dec_outputs, dec_state = tf.nn.rnn(
+          self._dec_cell, dec_inputs, 
+          initial_state=enc_state, dtype=tf.float32)
+        """the shape of each tensor
+          dec_output_ : (step_num x hidden_num)
+          dec_weight_ : (hidden_num x elem_num)
+          dec_bias_ : (elem_num)
+          output_ : (step_num x elem_num)
+          input_ : (step_num x elem_num)
+        """
+        if reverse:
+          dec_outputs = dec_outputs[::-1]
+        dec_output_ = tf.transpose(tf.pack(dec_outputs), [1,0,2])
+        dec_weight_ = tf.tile(tf.expand_dims(dec_weight_, 0), [self.batch_num,1,1])
+        self.output_ = tf.batch_matmul(dec_output_, dec_weight_) + dec_bias_
 
-    """the shape of each tensor
-      dec_output_ : (step_num x hidden_num)
-      dec_weight_ : (hidden_num x elem_num)
-      dec_bias_ : (elem_num)
-      output_ : (step_num x elem_num)
-      input_ : (step_num x elem_num)
-    """
-    dec_output_ = tf.transpose(tf.pack(dec_outputs), [1,0,2])
-    dec_weight_ = tf.tile(tf.expand_dims(dec_weight_, 0), [self.batch_num,1,1])
+      else : 
+        dec_state = enc_state
+        dec_input_ = tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
+        dec_outputs = []
+        for step in range(len(inputs)):
+          if step>0: vs.reuse_variables()
+          dec_input_, dec_state = self._dec_cell(dec_input_, dec_state)
+          dec_input_ = tf.matmul(dec_input_, dec_weight_) + dec_bias_
+          dec_outputs.append(dec_input_)
+        self.output_ = tf.transpose(tf.pack(dec_outputs), [1,0,2])
 
-    self.output_ = tf.batch_matmul(dec_output_, dec_weight_) + dec_bias_
     self.input_ = tf.transpose(tf.pack(inputs), [1,0,2])
     self.loss = tf.reduce_mean(tf.square(self.input_ - self.output_))
 
