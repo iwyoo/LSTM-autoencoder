@@ -9,15 +9,21 @@ Future : Modularization
 """
 
 class LSTMAutoencoder(object):
+  """Basic version of LSTM-autoencoder.
+  (cf. http://arxiv.org/abs/1502.04681)
+
+  Usage:
+    ae = LSTMAutoencoder(hidden_num, inputs)
+    sess.run(ae.train)
+  """
+
   def __init__(self, hidden_num, inputs, 
     cell=None, optimizer=None, reverse=True, 
     decode_without_input=False):
-    """Basic version of LSTM-autoencoder.
-    (cf. http://arxiv.org/abs/1502.04681)
-
+    """
     Args:
       hidden_num : number of hidden elements of each LSTM unit.
-      inputs : a list of input tensors  with size 
+      inputs : a list of input tensors with size 
               (batch_num x elem_num)
       cell : an rnn cell object (the default option 
             is `tf.python.ops.rnn_cell.LSTMCell`)
