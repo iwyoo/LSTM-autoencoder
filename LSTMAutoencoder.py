@@ -34,8 +34,8 @@ class LSTMAutoencoder(object):
       self._enc_cell = LSTMCell(hidden_num)
       self._dec_cell = LSTMCell(hidden_num)
     else :
-      self._enc_cell = cell(hidden_num)
-      self._dec_cell = cell(hidden_num)
+      self._enc_cell = cell
+      self._dec_cell = cell
 
     with tf.variable_scope('encoder'):
       self.z_codes, enc_state = tf.nn.rnn(
