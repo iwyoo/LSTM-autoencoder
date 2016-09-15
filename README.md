@@ -5,7 +5,7 @@ TensorFlow LSTM-autoencoder implementation
 ```python
 
 # hidden_num : the number of hidden units in each RNN-cell
-# inputs : a list of tensor with size (batch_num x elem_num)
+# inputs : a list of tensor with size (batch_num x step_num x elem_num)
 ae = LSTMAutoencoder(hidden_num, inputs)
 ...
 sess.run(init)
