@@ -60,7 +60,7 @@ class LSTMAutoencoder(object):
                       for _ in range(len(inputs))]
         dec_outputs, dec_state = tf.nn.rnn(
           self._dec_cell, dec_inputs, 
-          initial_state=enc_state, dtype=tf.float32)
+          initial_state=self.enc_state, dtype=tf.float32)
         """the shape of each tensor
           dec_output_ : (step_num x hidden_num)
           dec_weight_ : (hidden_num x elem_num)
@@ -75,7 +75,7 @@ class LSTMAutoencoder(object):
         self.output_ = tf.batch_matmul(dec_output_, dec_weight_) + dec_bias_
 
       else : 
-        dec_state = enc_state
+        dec_state = self.enc_state
         dec_input_ = tf.zeros(tf.shape(inputs[0]), dtype=tf.float32)
         dec_outputs = []
         for step in range(len(inputs)):
