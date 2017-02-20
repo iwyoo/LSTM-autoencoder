@@ -44,7 +44,7 @@ class LSTMAutoencoder(object):
       self._dec_cell = cell
 
     with tf.variable_scope('encoder'):
-      self.z_codes, enc_state = tf.nn.rnn(
+      self.z_codes, self.enc_state = tf.nn.rnn(
         self._enc_cell, inputs, dtype=tf.float32)
 
     with tf.variable_scope('decoder') as vs:
